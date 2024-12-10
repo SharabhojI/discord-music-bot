@@ -6,6 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 import asyncio
 import yt_dlp
+from datetime import datetime
 
 load_dotenv() # load the .env file with the bot token
 
@@ -38,6 +39,7 @@ async def on_ready():
     description='Play the input url or queue it if something is already playing'
 )
 async def play(ctx: discord.Interaction, query: str):
+    global last_activity
     try:
         await ctx.response.defer() # defer response to allow for processing
 
@@ -50,6 +52,7 @@ async def play(ctx: discord.Interaction, query: str):
                 return
 
         voice_client = ctx.guild.voice_client
+        last_activity[ctx.guild.id] = datetime.utcnow()
 
         # check if input query is a URL or a search query
         ydl_options = {
@@ -149,10 +152,12 @@ async def leave(ctx: discord.Interaction):
 
 ## Internal Functions ##
 async def play_next(ctx: discord.Interaction):
+    global last_activity
     voice_client = ctx.guild.voice_client
 
     # Check if the queue is empty
     if not music_queue.empty():
+        last_activity[ctx.guild.id] = datetime.utcnow()
         next_url, next_title = await music_queue.get()
         voice_client.play(
             discord.FFmpegPCMAudio(next_url, **FFMPEG_OPTIONS),
@@ -162,9 +167,14 @@ async def play_next(ctx: discord.Interaction):
     else:
         # Wait for inactivity_time before disconnecting
         await asyncio.sleep(inactivity_time)
-        if music_queue.empty() and voice_client:
-            await voice_client.disconnect()
-            await ctx.channel.send("No activity for a while, so I'm leaving the voice channel.")
+        now = datetime.utcnow()
+        if (
+            ctx.guild.id in last_activity
+            and (now - last_activity[ctx.guild.id]).total_seconds() >= inactivity_time
+        ):
+            if music_queue.empty() and voice_client:
+                await voice_client.disconnect()
+                await ctx.channel.send("No activity for a while, so I'm leaving the voice channel.")
 
 ## Get bot token and run ##
 token = os.getenv('BOT_TOKEN')
