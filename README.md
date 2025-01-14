@@ -36,6 +36,7 @@ docker run -d --env-file .env music-bot
 
 ### Commands
 - **/play [query]**: Play a song from a YouTube URL or search query. If a song is already playing, it will be queued.
+- **/queue**: Lists all the songs currently in the queue.
 - **/skip**: Skip the currently playing song and play the next song in the queue.
 - **/remove [index]**: Remove a specific song from the queue by its position number.
 - **/clear**: Clear the entire music queue.

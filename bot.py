@@ -83,7 +83,33 @@ async def play(ctx: discord.Interaction, query: str):
             await ctx.followup.send(f"Now playing: {title}")
 
     except Exception as e:
-        await ctx.followup.send(f"Error plying song: {e}", ephemeral=True)
+        await ctx.followup.send(f"Error playing song: {e}", ephemeral=True)
+
+@client.tree.command(
+    name='queue',
+    description='List all songs currently in the queue'
+)
+async def list_queue(ctx: discord.Interaction):
+    try:
+        if music_queue.empty():
+            await ctx.response.send_message("The queue is empty!", ephemeral=True)
+            return
+
+        temp_queue = []
+        queue_list = []
+
+        while not music_queue.empty():
+            item = await music_queue.get()
+            temp_queue.append(item)
+            queue_list.append(f"{len(temp_queue)}. {item[1]}")
+
+        for item in temp_queue:
+            await music_queue.put(item)
+
+        queue_text = "\n".join(queue_list)
+        await ctx.response.send_message(f"Current queue:\n{queue_text}")
+    except Exception as e:
+        await ctx.response.send_message(f"Error listing the queue: {e}", ephemeral=True)
 
 @client.tree.command(
     name='skip',
@@ -98,31 +124,38 @@ async def skip(ctx: discord.Interaction):
 
         voice_client.stop()
         asyncio.run_coroutine_threadsafe(play_next(ctx), client.loop)
-        await ctx.response.send_message("Skipped the curent song.")
+        await ctx.response.send_message("Skipped the current song.")
     except Exception as e:
-        await ctx.response.send_message("Error skipping song: {e}", ephemeral=True)
+        await ctx.response.send_message(f"Error skipping song: {e}", ephemeral=True)
 
 @client.tree.command(
     name='remove',
     description='Remove the specified index from the queue'
 )
 async def remove(ctx: discord.Interaction, index: int):
-    temp_queue = [] # temp queue to dequeue into
+    try:
+        if music_queue.empty():
+            await ctx.response.send_message("The queue is empty!", ephemeral=True)
+            return
 
-    # dequeue music queue
-    while not music_queue.empty():
-        temp_queue.append(await music_queue.get())
+        temp_queue = [] # temp queue to dequeue into
 
-    # remove the specified index
-    if index <= len(temp_queue):
-        removed = temp_items.pop(index-1)
-        await ctx.response.send_message(f"Removed queue item {index}: {removed}")
-    else:
-        await ctx.response.send_message("Selected index out of range for queue")
+        # dequeue music queue
+        while not music_queue.empty():
+            temp_queue.append(await music_queue.get())
 
-    # requeue the items
-    for item in temp_queue:
-        await music_queue.put(item)
+        # remove the specified index
+        if index <= len(temp_queue):
+            removed = temp_queue.pop(index-1)
+            await ctx.response.send_message(f"Removed queue item {index}: {removed[1]}")
+        else:
+            await ctx.response.send_message("Selected index out of range for queue", ephemeral=True)
+
+        # requeue the items
+        for item in temp_queue:
+            await music_queue.put(item)
+    except Exception as e:
+        await ctx.response.send_message(f"Error removing from queue: {e}", ephemeral=True)
 
 @client.tree.command(
     name='clear',
